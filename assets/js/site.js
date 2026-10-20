@@ -46,6 +46,7 @@
   /* ---------- image load states ---------- */
   /* Single images hold their space with padding until they load, then the padding comes off. */
   function markLoaded(img) {
+    if ((img.currentSrc || img.src).indexOf('data:') === 0) return;
     img.classList.add('image-loaded');
     if (img.getAttribute('height') === '0') {
       img.removeAttribute('height');
@@ -54,8 +55,8 @@
     }
   }
   $$('img').forEach(function (img) {
+    img.addEventListener('load', function () { markLoaded(img); });
     if (img.complete && img.naturalWidth) markLoaded(img);
-    else img.addEventListener('load', function () { markLoaded(img); });
   });
 
   /* ---------- photo grids ----------
@@ -128,7 +129,19 @@
     grid.classList.add('grid--ready');
   }
   var grids = $$('.js-grid-main');
-  function sizeAll() { grids.forEach(sizeGrid); }
+  /* Photos only get their full list of sizes once their on-screen width is known, so the
+     browser downloads the size that fits instead of the 4K version for every thumbnail. */
+  function fitImages() {
+    $$('img[data-srcset]').forEach(function (img) {
+      var w = img.clientWidth || (img.parentNode && img.parentNode.clientWidth) || 600;
+      img.sizes = Math.ceil(w) + 'px';
+      if (!img.getAttribute('srcset')) {
+        img.srcset = img.getAttribute('data-srcset');
+        img.src = img.getAttribute('data-src');
+      }
+    });
+  }
+  function sizeAll() { grids.forEach(sizeGrid); fitImages(); }
   sizeAll();
   var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(sizeAll, 100); });
   if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(sizeAll);
@@ -153,7 +166,16 @@
   $$('.js-lightbox').forEach(function (el) {
     var img = el.querySelector('img');
     var src = img ? (img.currentSrc || img.getAttribute('src')) : el.getAttribute('data-src');
-    var full = img && img.getAttribute('srcset') ? img.getAttribute('srcset').split(',').map(function (s) { return s.trim().split(' ')[0]; }).filter(Boolean).pop() : src;
+    /* lightbox: the smallest version that still fills this screen */
+    var set = img && (img.getAttribute('data-srcset') || img.getAttribute('srcset'));
+    var full = src;
+    if (set) {
+      var need = window.innerWidth * (window.devicePixelRatio || 1);
+      var opts = set.split(',').map(function (s) { var p = s.trim().split(' '); return { u: p[0], w: parseInt(p[1], 10) || 0 }; })
+        .filter(function (o) { return o.u; }).sort(function (a, b) { return a.w - b.w; });
+      full = opts[opts.length - 1].u;
+      for (var k = 0; k < opts.length; k++) { if (opts[k].w >= need) { full = opts[k].u; break; } }
+    }
     el.classList.add('lightbox-link');
     slides.push({ el: el, src: full || src });
   });
