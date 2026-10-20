@@ -155,10 +155,30 @@
   });
 
   /* ---------- hero video: pick the right size for the screen ---------- */
+  /* The poster frame shows straight away. The video stays hidden until enough of it has
+     downloaded to play without stopping, then fades in. Slow connections get the 720p file. */
   $$('video[data-responsive-video]').forEach(function (v) {
     var sources = $$('source', v), pick = null;
-    sources.forEach(function (s) { if (!pick && (!s.media || window.matchMedia(s.media).matches)) pick = s; });
-    if (pick) { v.src = pick.src; v.muted = true; var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+    var conn = navigator.connection || {};
+    var slow = conn.saveData || /(^|-)(2g|3g)$/.test(conn.effectiveType || '');
+    sources.forEach(function (s) {
+      if (pick) return;
+      if (slow && s.src.indexOf('720') > -1) { pick = s; return; }
+      if (!s.media || window.matchMedia(s.media).matches) pick = s;
+    });
+    if (!pick) return;
+    var poster = v.getAttribute('poster');
+    var wrap = v.parentNode;
+    if (poster && wrap) { wrap.style.background = '#000 url(' + poster + ') center / cover no-repeat'; }
+    v.style.opacity = '0';
+    v.style.transition = 'opacity .6s ease';
+    var shown = false;
+    function reveal() { if (shown) return; shown = true; v.style.opacity = '1'; var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+    v.addEventListener('canplaythrough', reveal);
+    setTimeout(function () { if (v.readyState >= 3) reveal(); }, 4000);
+    v.muted = true;
+    v.src = pick.src;
+    v.load();
   });
 
   /* ---------- lightbox ---------- */
