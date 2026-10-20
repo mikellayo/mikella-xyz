@@ -1,0 +1,10 @@
+/* Local replacements for behaviour Adobe Portfolio added with its own script. */
+
+/* Lightbox backdrop: the old site used white at 94% opacity. */
+#lightbox-wrap { background: rgba(255, 255, 255, 0.94); }
+#lightbox-wrap .lightbox-content img { display: block; max-width: 100vw; max-height: 100vh; object-fit: contain; }
+#lightbox-wrap .lightbox-content { left: 0; }
+#lightbox-wrap .lightbox-caption { position: fixed; left: 0; right: 0; bottom: 0; }
+
+/* Download protection, same as the old site */
+.disable-download img { -webkit-user-drag: none; user-select: none; }
